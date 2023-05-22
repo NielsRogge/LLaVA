@@ -38,6 +38,7 @@ def eval_model(args):
         model = LlavaMPTForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True, torch_dtype=torch.float16, use_cache=True).cuda()
     else:
         model = LlavaLlamaForCausalLM.from_pretrained(model_name, low_cpu_mem_usage=True, torch_dtype=torch.float16, use_cache=True).cuda()
+
     image_processor = CLIPImageProcessor.from_pretrained(model.config.mm_vision_tower, torch_dtype=torch.float16)
 
     mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False)
@@ -57,6 +58,9 @@ def eval_model(args):
     if mm_use_im_start_end:
         vision_config.im_start_token, vision_config.im_end_token = tokenizer.convert_tokens_to_ids([DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN])
     image_token_len = (vision_config.image_size // vision_config.patch_size) ** 2
+
+    for name, param in model.named_parameters():
+        print(name, param.shape)
 
     # qs = args.query
     qs = "What is unusual about this image?"

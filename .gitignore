@@ -23,3 +23,12 @@ output
 
 checkpoints
 ckpts*
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
