@@ -53,8 +53,11 @@ def eval_model(args):
 
     model_name = get_model_name_from_path(args.model_path)
     tokenizer, model, image_processor, context_len = load_pretrained_model(
-        args.model_path, args.model_base, model_name
+        # place everything on cuda:2
+        args.model_path, args.model_base, model_name=model_name, device_map="auto",
     )
+
+    print("Image processor: ", image_processor)
 
     qs = args.query
     image_token_se = DEFAULT_IM_START_TOKEN + DEFAULT_IMAGE_TOKEN + DEFAULT_IM_END_TOKEN
@@ -96,6 +99,8 @@ def eval_model(args):
     conv.append_message(conv.roles[1], None)
     prompt = conv.get_prompt()
 
+    print("Prompt:", repr(prompt))
+
     image_files = image_parser(args)
     images = load_images(image_files)
     image_sizes = [x.size for x in images]
@@ -105,26 +110,65 @@ def eval_model(args):
         model.config
     ).to(model.device, dtype=torch.float16)
 
+    print("Shape of images_tensor: ", images_tensor.shape)
+    print('Image sizes:', image_sizes)
+    print("Mean of images_tensor: ", images_tensor.mean())
+
     input_ids = (
         tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt")
         .unsqueeze(0)
         .cuda()
     )
 
+    print("Input_ids:", input_ids)
+
+    # push original pixel values and input ids to the hub
+    # torch.save(input_ids, "llava_1_6_input_ids.pt")
+    # torch.save(images_tensor, "llava_1_6_pixel_values.pt")
+
+    # from huggingface_hub import HfApi
+    # api = HfApi()
+    # api.upload_file(
+    #     path_or_fileobj="llava_1_6_input_ids.pt",
+    #     path_in_repo="llava_1_6_input_ids.pt",
+    #     repo_id="nielsr/test-image",
+    #     repo_type="dataset",
+    # )
+    # api.upload_file(
+    #     path_or_fileobj="llava_1_6_pixel_values.pt",
+    #     path_in_repo="llava_1_6_pixel_values.pt",
+    #     repo_id="nielsr/test-image",
+    #     repo_type="dataset",
+    # )
+
+    print("----------------")
+    print("Single forward pass:")
+    with torch.inference_mode():
+        outputs = model(input_ids, images=images_tensor, image_sizes=image_sizes)
+        print("Shape of logits:", outputs.logits.shape)
+        print("First values of logits:", outputs.logits[0, :3, :3])
+
+    print("----------------")
+    print("Shape of input_ids:", input_ids.shape)
+    print("Shape of images_tensor:", images_tensor.shape)
+    print("Shape of image_sizes:", image_sizes)
+
+    print("Generation:")
     with torch.inference_mode():
         output_ids = model.generate(
             input_ids,
             images=images_tensor,
             image_sizes=image_sizes,
-            do_sample=True if args.temperature > 0 else False,
-            temperature=args.temperature,
-            top_p=args.top_p,
+            # do_sample=True if args.temperature > 0 else False,
+            # temperature=args.temperature,
+            # top_p=args.top_p,
             num_beams=args.num_beams,
             max_new_tokens=args.max_new_tokens,
             use_cache=True,
         )
 
-    outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
+    outputs = tokenizer.batch_decode(output_ids, skip_special_tokens=True)
+    outputs = [x.strip() for x in outputs]
     print(outputs)
 
 
