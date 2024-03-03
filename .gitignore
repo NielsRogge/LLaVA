@@ -33,3 +33,9 @@ ckpts*
 
 # Demo
 serve_images/
+
+# Environments
+.env
+.venv
+env/
+venv/
