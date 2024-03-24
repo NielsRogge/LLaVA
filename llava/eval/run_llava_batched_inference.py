@@ -1,3 +1,8 @@
+"""
+LLava batched inference script. Run it as follows:
+CUDA_VISIBLE_DEVICES=0 python llava/eval/run_llava_batched_inference.py --model-path "liuhaotian/llava-v1.6-mistral-7b" --image-file "images/llava_v1_5_radar.jpg" --query "What is shown in this image?"
+"""
+
 import argparse
 import torch
 
